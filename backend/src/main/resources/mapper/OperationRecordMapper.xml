@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.agrodrone.mapper.OperationRecordMapper">
+    <select id="selectRecordDetails" resultType="com.agrodrone.vo.OperationRecordVO">
+        SELECT
+            r.id,
+            t.task_no AS taskNo,
+            f.name AS fieldName,
+            d.code AS droneCode,
+            r.actual_start_time AS actualStartTime,
+            r.actual_end_time AS actualEndTime,
+            r.actual_area_mu AS actualAreaMu,
+            r.duration_minutes AS durationMinutes,
+            r.result,
+            r.exception_remark AS exceptionRemark
+        FROM operation_record r
+        INNER JOIN operation_task t ON r.task_id = t.id
+        INNER JOIN field_plot f ON t.field_id = f.id
+        INNER JOIN drone d ON r.drone_id = d.id
+        ORDER BY r.created_at DESC
+    </select>
+</mapper>

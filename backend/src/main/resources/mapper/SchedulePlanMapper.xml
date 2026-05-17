@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.agrodrone.mapper.SchedulePlanMapper">
+    <select id="selectScheduleDetails" resultType="com.agrodrone.vo.ScheduleDetailVO">
+        SELECT
+            sp.id,
+            ot.task_no AS taskNo,
+            ot.operation_type AS operationType,
+            fp.name AS fieldName,
+            fp.crop_type AS cropType,
+            d.code AS droneCode,
+            sp.planned_start_time AS plannedStartTime,
+            sp.planned_end_time AS plannedEndTime,
+            sp.estimated_area_mu AS estimatedAreaMu,
+            sp.score,
+            sp.decision_reason AS decisionReason,
+            sp.status
+        FROM schedule_plan sp
+        INNER JOIN operation_task ot ON sp.task_id = ot.id
+        INNER JOIN field_plot fp ON ot.field_id = fp.id
+        INNER JOIN drone d ON sp.drone_id = d.id
+        ORDER BY sp.created_at DESC
+    </select>
+</mapper>
