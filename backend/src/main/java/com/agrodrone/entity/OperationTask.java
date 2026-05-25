@@ -17,6 +17,7 @@ public class OperationTask {
     private LocalDateTime latestEndTime;
     private String status;
     private String remark;
+    private String createdBy;
 
     public Long getId() {
         return id;
@@ -96,5 +97,13 @@ public class OperationTask {
 
     public void setRemark(String remark) {
         this.remark = remark;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
     }
 }

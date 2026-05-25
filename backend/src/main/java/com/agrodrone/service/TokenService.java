@@ -39,6 +39,33 @@ public class TokenService {
         return expireAt > Instant.now().getEpochSecond();
     }
 
+    /**
+     * 从 token 中解析出用户的基本信息（id, username, role），如果 token 无效则返回 null。
+     */
+    public com.agrodrone.entity.SysUser parseToken(String token) {
+        if (token == null || token.isBlank() || !token.contains(".")) {
+            return null;
+        }
+        try {
+            String[] parts = token.split("\\.", 2);
+            if (!sign(parts[0]).equals(parts[1])) {
+                return null;
+            }
+            String payload = new String(Base64.getUrlDecoder().decode(parts[0]), StandardCharsets.UTF_8);
+            String[] values = payload.split(":");
+            if (values.length != 4) {
+                return null;
+            }
+            com.agrodrone.entity.SysUser user = new com.agrodrone.entity.SysUser();
+            user.setId(Long.parseLong(values[0]));
+            user.setUsername(values[1]);
+            user.setRole(values[2]);
+            return user;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     private String sign(String value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

@@ -37,6 +37,7 @@ export const api = {
   fields: () => request('/api/fields'),
   mapOverview: () => request('/api/map/overview'),
   tasks: () => request('/api/tasks'),
+  users: () => request('/api/users'),
   schedules: () => request('/api/schedules'),
   records: () => request('/api/schedules/records'),
   logs: () => request('/api/logs'),
@@ -59,6 +60,22 @@ export const api = {
   }),
   createTask: (payload) => api.saveTask(payload),
   deleteTask: (id) => request(`/api/tasks/${id}`, { method: 'DELETE' }),
+  createUser: (payload) => request('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }),
+  updateUser: (id, payload) => request(`/api/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }),
+  deleteUser: (id) => request(`/api/users/${id}`, { method: 'DELETE' }),
+  changePassword: (id, payload) => request(`/api/users/${id}/password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }),
   generate: () => request('/api/schedules/generate', { method: 'POST' }),
   confirmSchedule: (id) => request(`/api/schedules/${id}/confirm`, { method: 'POST' }),
   cancelSchedule: (id) => request(`/api/schedules/${id}/cancel`, { method: 'POST' }),
@@ -67,5 +84,22 @@ export const api = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  })
+  }),
+  analyzeImage: (file, fieldPlotId) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (fieldPlotId) formData.append('fieldPlotId', fieldPlotId)
+    return fetch('/api/pest-detection/analyze', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData
+    }).then(unwrap)
+  },
+  pestRecords: (fieldPlotId) => {
+    const params = fieldPlotId ? `?fieldPlotId=${fieldPlotId}` : ''
+    return request(`/api/pest-detection/records${params}`)
+  },
+  pestRecordDetail: (id) => request(`/api/pest-detection/records/${id}`),
+  applyPestResult: (id) => request(`/api/pest-detection/records/${id}/apply`, { method: 'POST' }),
+  deletePestRecord: (id) => request(`/api/pest-detection/records/${id}`, { method: 'DELETE' })
 }

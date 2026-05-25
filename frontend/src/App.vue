@@ -2,10 +2,14 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { gsap } from 'gsap'
 import { api } from './api'
+import { useRouter, useRoute } from 'vue-router'
 
 const loading = ref(false)
 const message = ref('')
 const activeView = ref('dashboard')
+const router = useRouter()
+const route = useRoute()
+const goUsers = () => { activeView.value = 'users'; router.push('/users') }
 const currentUser = ref(JSON.parse(localStorage.getItem('agro_user') || 'null'))
 const overview = ref({})
 const drones = ref([])
@@ -15,6 +19,13 @@ const tasks = ref([])
 const schedules = ref([])
 const records = ref([])
 const logs = ref([])
+const pestFile = ref(null)
+const pestPreviewUrl = ref('')
+const pestFieldId = ref('')
+const pestResult = ref(null)
+const pestRecords = ref([])
+const pestLoading = ref(false)
+const pestFileInputRef = ref(null)
 const workspaceBody = ref(null)
 const animatedOverview = reactive({
   droneCount: 0,
@@ -88,6 +99,7 @@ const taskForm = reactive(blankTask())
 const showDroneForm = ref(false)
 const showFieldForm = ref(false)
 const showTaskForm = ref(false)
+// users management moved to dedicated route / component
 
 const pendingTasks = computed(() => tasks.value.filter((task) => task.status === 'PENDING'))
 const filteredTasks = computed(() => taskStatusFilter.value === 'ALL'
@@ -101,8 +113,10 @@ const pageTitle = computed(() => ({
   drones: '无人机管理',
   fields: '地块管理',
   tasks: '任务管理',
+  users: '用户管理',
   schedules: '调度计划',
-  logs: '操作日志'
+  logs: '操作日志',
+  'pest-detection': 'AI虫害检测'
 }[activeView.value]))
 const chartRows = computed(() => [
   { label: '待调度', value: tasks.value.filter((item) => item.status === 'PENDING').length, color: '#d9842b' },
@@ -389,6 +403,7 @@ const loadAll = async () => {
     drones.value = droneData
     fields.value = fieldData
     tasks.value = taskData
+    // users handled by UsersPage component
     schedules.value = scheduleData
     records.value = recordData
     logs.value = logData
@@ -396,6 +411,11 @@ const loadAll = async () => {
       mapOverview.value = await api.mapOverview()
     } catch (error) {
       mapOverview.value = { fields: fieldData, boundaries: {}, drones: droneData, tracks: [] }
+    }
+    try {
+      pestRecords.value = await api.pestRecords(null)
+    } catch (error) {
+      // table may not exist yet on first deploy
     }
     if (!taskForm.fieldId && fieldData.length > 0) {
       taskForm.fieldId = fieldData[0].id
@@ -567,6 +587,8 @@ const saveTask = async () => {
   }
 }
 
+// user management moved to UsersPage component
+
 const editTask = (task) => {
   assign(taskForm, {
     ...task,
@@ -653,6 +675,93 @@ const exportSchedules = () => {
   link.download = 'schedule-plans.csv'
   link.click()
   URL.revokeObjectURL(url)
+}
+
+const handlePestFileSelect = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    message.value = '仅支持 JPG/PNG 图片格式'
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    message.value = '文件大小不能超过 10MB'
+    return
+  }
+  pestFile.value = file
+  pestPreviewUrl.value = URL.createObjectURL(file)
+  pestResult.value = null
+}
+
+const detectPest = async () => {
+  if (!pestFile.value) {
+    message.value = '请先选择图片'
+    return
+  }
+  pestLoading.value = true
+  message.value = ''
+  try {
+    const result = await api.analyzeImage(pestFile.value, pestFieldId.value || null)
+    pestResult.value = result
+    await loadPestHistory()
+    message.value = 'AI分析完成'
+  } catch (error) {
+    message.value = error.message
+  } finally {
+    pestLoading.value = false
+  }
+}
+
+const loadPestHistory = async () => {
+  try {
+    pestRecords.value = await api.pestRecords(null)
+  } catch (error) {
+    // silent
+  }
+}
+
+const applyToField = async (recordId) => {
+  if (!window.confirm('确认将此检测结果的风险等级应用到对应地块？')) return
+  try {
+    await api.applyPestResult(recordId)
+    message.value = '已应用到地块'
+    await loadPestHistory()
+    if (pestResult.value && pestResult.value.id === recordId) {
+      pestResult.value.appliedToField = true
+    }
+  } catch (error) {
+    message.value = error.message
+  }
+}
+
+const deletePestRecord = async (id) => {
+  if (!window.confirm('确认删除该检测记录？关联的图片也将被删除。')) return
+  try {
+    await api.deletePestRecord(id)
+    message.value = '记录已删除'
+    if (pestResult.value && pestResult.value.id === id) {
+      pestResult.value = null
+    }
+    await loadPestHistory()
+  } catch (error) {
+    message.value = error.message
+  }
+}
+
+const resetPestForm = () => {
+  pestFile.value = null
+  pestPreviewUrl.value = ''
+  pestFieldId.value = ''
+  pestResult.value = null
+  if (pestFileInputRef.value) pestFileInputRef.value.value = ''
+}
+
+const severityText = (level) => ({ HIGH: '高风险', MEDIUM: '中风险', LOW: '低风险' }[level] || level)
+const diseaseConfidence = (confidence) => confidence ? (confidence * 100).toFixed(1) + '%' : '-'
+
+const viewPestDetail = (record) => {
+  pestResult.value = record
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 onMounted(() => {
@@ -749,8 +858,10 @@ watch(mapOverview, async () => {
         <button :class="{ active: activeView === 'drones' }" @click="activeView = 'drones'">无人机管理</button>
         <button :class="{ active: activeView === 'fields' }" @click="activeView = 'fields'">地块管理</button>
         <button :class="{ active: activeView === 'tasks' }" @click="activeView = 'tasks'">任务管理</button>
+        <button :class="{ active: activeView === 'users' }" @click="goUsers">用户管理</button>
         <button :class="{ active: activeView === 'schedules' }" @click="activeView = 'schedules'">调度计划</button>
         <button :class="{ active: activeView === 'logs' }" @click="activeView = 'logs'">操作日志</button>
+        <button :class="{ active: activeView === 'pest-detection' }" @click="activeView = 'pest-detection'">AI虫害检测</button>
       </nav>
     </aside>
 
@@ -805,6 +916,10 @@ watch(mapOverview, async () => {
           </div>
         </section>
 
+      </template>
+
+      <template v-if="activeView === 'users'">
+        <router-view />
       </template>
 
       <template v-if="activeView === 'map'">
@@ -1047,6 +1162,119 @@ watch(mapOverview, async () => {
               </tbody>
             </table>
             <p v-if="!logs.length" class="empty">暂无操作日志。</p>
+          </div>
+        </section>
+      </template>
+
+      <template v-if="activeView === 'pest-detection'">
+        <section class="panel">
+          <div class="section-title">
+            <h2>上传农田照片进行AI分析</h2>
+            <span>支持 JPG / PNG，最大 10MB</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+            <div>
+              <input ref="pestFileInputRef" type="file" accept="image/jpeg,image/png" @change="handlePestFileSelect" style="display:none" />
+              <div @click="$refs.pestFileInputRef.click()" style="border:2px dashed #cbd8ce;border-radius:8px;padding:40px;text-align:center;cursor:pointer;background:#fbfdfb;min-height:220px;display:grid;place-items:center;">
+                <img v-if="pestPreviewUrl" :src="pestPreviewUrl" style="max-width:100%;max-height:280px;border-radius:6px;object-fit:contain;" />
+                <div v-else>
+                  <p style="font-size:36px;margin:0 0 8px;color:#a5d66d;">+</p>
+                  <p style="color:#65756a;margin:0;">点击选择农田照片</p>
+                </div>
+              </div>
+              <label style="margin-top:12px;display:grid;gap:6px;">
+                <span>关联地块（可选）</span>
+                <select v-model="pestFieldId">
+                  <option value="">不关联地块</option>
+                  <option v-for="field in fields" :key="field.id" :value="field.id">{{ field.name }} / {{ field.cropType }}</option>
+                </select>
+              </label>
+              <div class="card-actions" style="margin-top:14px;">
+                <button class="secondary" :disabled="pestLoading || !pestFile" @click="detectPest">
+                  {{ pestLoading ? '分析中...' : '开始AI分析' }}
+                </button>
+                <button class="ghost" @click="resetPestForm">重置</button>
+              </div>
+            </div>
+            <div>
+              <div v-if="pestResult" style="border:1px solid #d8e3da;border-radius:8px;padding:18px;background:#ffffff;min-height:260px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                  <h2 style="margin:0;font-size:18px;">分析结果</h2>
+                  <span :class="['tag', pestResult.severity === 'HIGH' ? 'tag-danger' : pestResult.severity === 'MEDIUM' ? 'tag-warn' : 'tag-safe']">
+                    {{ severityText(pestResult.severity) }}
+                  </span>
+                </div>
+                <table style="min-width:auto;width:100%;">
+                  <tbody>
+                    <tr><td style="color:#65756a;padding:6px 8px;">检测病害</td><td style="padding:6px 8px;"><strong>{{ pestResult.detectedDisease }}</strong></td></tr>
+                    <tr><td style="color:#65756a;padding:6px 8px;">置信度</td><td style="padding:6px 8px;"><strong>{{ diseaseConfidence(pestResult.confidence) }}</strong></td></tr>
+                    <tr><td style="color:#65756a;padding:6px 8px;">风险等级</td><td style="padding:6px 8px;">{{ severityText(pestResult.severity) }}</td></tr>
+                    <tr><td style="color:#65756a;padding:6px 8px;vertical-align:top;">分析描述</td><td style="padding:6px 8px;white-space:normal;">{{ pestResult.description }}</td></tr>
+                  </tbody>
+                </table>
+                <div style="margin-top:12px;">
+                  <p style="font-size:13px;color:#65756a;margin:0 0 6px;">颜色分布</p>
+                  <div class="chart">
+                    <div class="chart-row" v-for="c in [{l:'健康绿色',k:'greenRatio',c:'#6db04b'},{l:'黄化',k:'yellowRatio',c:'#d9b84a'},{l:'坏死',k:'brownRatio',c:'#8b5e3c'},{l:'真菌/白粉',k:'grayRatio',c:'#aab2b0'},{l:'锈病',k:'orangeRatio',c:'#d9842b'}]" :key="c.k">
+                      <span>{{ c.l }}</span>
+                      <div><i :style="{width:Math.max(2, (pestResult[c.k]||0)*100)+'%',background:c.color}"></i></div>
+                      <b>{{ ((pestResult[c.k]||0)*100).toFixed(1) }}%</b>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-actions" style="margin-top:14px;border-top:1px solid #edf1ee;padding-top:14px;">
+                  <button class="link-btn" :disabled="!pestResult.fieldPlotId || pestResult.appliedToField" @click="applyToField(pestResult.id)">
+                    {{ pestResult.appliedToField ? '已应用到地块' : '应用到地块风险等级' }}
+                  </button>
+                  <button class="danger-btn" @click="deletePestRecord(pestResult.id)">删除</button>
+                </div>
+              </div>
+              <div v-else style="border:1px dashed #c6d4ca;border-radius:8px;padding:40px;text-align:center;color:#66766b;background:#fbfdfb;min-height:260px;display:grid;place-items:center;">
+                <p>上传图片并点击分析，结果将在此处显示</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>检测历史记录</h2>
+            <span>{{ pestRecords.length }} 条</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>图片</th>
+                  <th>检测病害</th>
+                  <th>风险等级</th>
+                  <th>置信度</th>
+                  <th>关联地块</th>
+                  <th>已应用</th>
+                  <th>检测时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="record in pestRecords" :key="record.id">
+                  <td><img :src="record.imageUrl" style="width:48px;height:48px;object-fit:cover;border-radius:4px;cursor:pointer;" @click="viewPestDetail(record)" /></td>
+                  <td>{{ record.detectedDisease }}</td>
+                  <td><span :class="['tag', record.severity === 'HIGH' ? 'tag-danger' : record.severity === 'MEDIUM' ? 'tag-warn' : 'tag-safe']">{{ severityText(record.severity) }}</span></td>
+                  <td>{{ diseaseConfidence(record.confidence) }}</td>
+                  <td>{{ fieldName(record.fieldPlotId) }}</td>
+                  <td>{{ record.appliedToField ? '是' : '否' }}</td>
+                  <td>{{ fmt(record.createdAt) }}</td>
+                  <td>
+                    <button class="link-btn" @click="viewPestDetail(record)" v-if="!pestResult || pestResult.id !== record.id">查看</button>
+                    <button class="link-btn" :disabled="!record.fieldPlotId || record.appliedToField" @click="applyToField(record.id)">
+                      {{ record.appliedToField ? '已应用' : '应用' }}
+                    </button>
+                    <button class="danger-btn" @click="deletePestRecord(record.id)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-if="!pestRecords.length" class="empty">暂无检测记录，上传图片开始第一次分析。</p>
           </div>
         </section>
       </template>

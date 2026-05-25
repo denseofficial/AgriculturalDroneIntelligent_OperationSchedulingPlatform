@@ -1,14 +1,22 @@
+app:
+  upload-path: uploads/pest_detection
+
 server:
   port: 8081
 
 spring:
   application:
     name: agricultural-drone-scheduler
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/agro_drone_scheduler?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: password
+    password: 202425710116
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml

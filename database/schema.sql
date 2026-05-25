@@ -66,6 +66,7 @@ CREATE TABLE operation_task (
     latest_end_time DATETIME NOT NULL,
     status VARCHAR(20) NOT NULL,
     remark VARCHAR(255),
+    created_by VARCHAR(50),
     INDEX idx_task_status_priority (status, priority),
     CONSTRAINT fk_task_field FOREIGN KEY (field_id) REFERENCES field_plot(id)
 );
@@ -130,6 +131,30 @@ CREATE TABLE operation_log (
     INDEX idx_log_time (created_at)
 );
 
+DROP TABLE IF EXISTS pest_detection_record;
+
+CREATE TABLE pest_detection_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    field_plot_id BIGINT,
+    image_url VARCHAR(255) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    detected_disease VARCHAR(64),
+    severity VARCHAR(20),
+    confidence DECIMAL(5,4),
+    description VARCHAR(500),
+    green_ratio DECIMAL(5,4),
+    yellow_ratio DECIMAL(5,4),
+    brown_ratio DECIMAL(5,4),
+    gray_ratio DECIMAL(5,4),
+    orange_ratio DECIMAL(5,4),
+    applied_to_field TINYINT NOT NULL DEFAULT 0,
+    created_by BIGINT,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME,
+    INDEX idx_detection_field (field_plot_id),
+    INDEX idx_detection_time (created_at)
+);
+
 INSERT INTO sys_user (username, password_hash, real_name, role, status, created_at) VALUES
 ('admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '系统管理员', 'ADMIN', 'ACTIVE', NOW());
 
@@ -151,8 +176,8 @@ INSERT INTO field_boundary (field_id, point_order, longitude, latitude) VALUES
 (3, 1, 116.396711, 39.934721), (3, 2, 116.400711, 39.934721), (3, 3, 116.400711, 39.938721), (3, 4, 116.396711, 39.938721),
 (4, 1, 116.372234, 39.908342), (4, 2, 116.376234, 39.908342), (4, 3, 116.376234, 39.912342), (4, 4, 116.372234, 39.912342);
 
-INSERT INTO operation_task (task_no, field_id, operation_type, required_area_mu, priority, earliest_start_time, latest_end_time, status, remark) VALUES
-('TASK-2026050901', 1, 'PESTICIDE', 128.50, 5, NOW(), DATE_ADD(NOW(), INTERVAL 12 HOUR), 'PENDING', '稻飞虱预警，优先处理'),
-('TASK-2026050902', 2, 'FERTILIZER', 86.00, 3, DATE_ADD(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 1 DAY), 'PENDING', '追肥作业'),
-('TASK-2026050903', 3, 'SEEDING', 120.00, 2, DATE_ADD(NOW(), INTERVAL 2 HOUR), DATE_ADD(NOW(), INTERVAL 2 DAY), 'PENDING', '补播区域'),
-('TASK-2026050904', 4, 'PESTICIDE', 42.50, 4, NOW(), DATE_ADD(NOW(), INTERVAL 8 HOUR), 'PENDING', '温室周边飞防');
+INSERT INTO operation_task (task_no, field_id, operation_type, required_area_mu, priority, earliest_start_time, latest_end_time, status, remark, created_by) VALUES
+('TASK-2026050901', 1, 'PESTICIDE', 128.50, 5, NOW(), DATE_ADD(NOW(), INTERVAL 12 HOUR), 'PENDING', '稻飞虱预警，优先处理', 'admin'),
+('TASK-2026050902', 2, 'FERTILIZER', 86.00, 3, DATE_ADD(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 1 DAY), 'PENDING', '追肥作业', 'admin'),
+('TASK-2026050903', 3, 'SEEDING', 120.00, 2, DATE_ADD(NOW(), INTERVAL 2 HOUR), DATE_ADD(NOW(), INTERVAL 2 DAY), 'PENDING', '补播区域', 'admin'),
+('TASK-2026050904', 4, 'PESTICIDE', 42.50, 4, NOW(), DATE_ADD(NOW(), INTERVAL 8 HOUR), 'PENDING', '温室周边飞防', 'admin');

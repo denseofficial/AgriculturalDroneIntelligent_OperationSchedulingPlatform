@@ -465,6 +465,21 @@ button:disabled {
   font-size: 12px;
 }
 
+.tag-danger {
+  background: #fce4e4;
+  color: #b84437;
+}
+
+.tag-warn {
+  background: #fef3d9;
+  color: #a67c2e;
+}
+
+.tag-safe {
+  background: #e2f4e6;
+  color: #21513b;
+}
+
 .task-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
