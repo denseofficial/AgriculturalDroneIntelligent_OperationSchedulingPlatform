@@ -125,6 +125,47 @@ const chartRows = computed(() => [
 ])
 const maxChartValue = computed(() => Math.max(1, ...chartRows.value.map((row) => row.value)))
 
+const recentLogs = computed(() => (logs.value || []).slice(0, 8))
+
+const pestAlertSummary = computed(() => {
+  const list = pestRecords.value || []
+  return {
+    total: list.length,
+    highCount: list.filter(r => r.severity === 'HIGH').length,
+    mediumCount: list.filter(r => r.severity === 'MEDIUM').length,
+    lowCount: list.filter(r => r.severity === 'LOW').length,
+    recent: list.slice(0, 5)
+  }
+})
+
+const todayProgress = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  const todayRecords = (records.value || []).filter(r => r.actualStartTime && String(r.actualStartTime).startsWith(today))
+  const actualArea = todayRecords.reduce((s, r) => s + (Number(r.actualAreaMu) || 0), 0)
+  const planned = Number(overview.value.todayAreaMu) || 0
+  const finished = todayRecords.filter(r => r.result === 'FINISHED').length
+  return { planned, actualArea, total: todayRecords.length, finished }
+})
+
+const droneStatusDist = computed(() => {
+  const map = { IDLE: 0, WORKING: 0, CHARGING: 0, MAINTENANCE: 0 }
+  ;(drones.value || []).forEach(d => { if (map[d.status] !== undefined) map[d.status]++ })
+  return [
+    { key: 'IDLE', label: '空闲', count: map.IDLE, color: '#6db04b' },
+    { key: 'WORKING', label: '作业中', count: map.WORKING, color: '#5272a8' },
+    { key: 'CHARGING', label: '充电中', count: map.CHARGING, color: '#d9b84a' },
+    { key: 'MAINTENANCE', label: '维护中', count: map.MAINTENANCE, color: '#b84437' }
+  ]
+})
+
+const batteryHealth = computed(() => {
+  const list = drones.value || []
+  if (!list.length) return { avg: 0, low: [], lowCount: 0 }
+  const avg = list.reduce((s, d) => s + (Number(d.batteryPercent) || 0), 0) / list.length
+  const low = list.filter(d => (Number(d.batteryPercent) || 0) < 25).sort((a, b) => (Number(a.batteryPercent) || 0) - (Number(b.batteryPercent) || 0))
+  return { avg, low, lowCount: low.length }
+})
+
 const fmt = (value) => value ? String(value).replace('T', ' ').slice(0, 16) : '-'
 const toInputTime = (value) => value ? String(value).slice(0, 16) : ''
 const fieldName = (id) => fields.value.find((field) => field.id === Number(id))?.name || '-'
@@ -497,12 +538,17 @@ const animateDashboard = async () => {
     duration: 0.9,
     ease: 'power2.out'
   })
-  gsap.fromTo('.chart-row i', { width: '0%' }, {
+  gsap.fromTo('.dash-top-row .chart-row i', { width: '0%' }, {
     width: (index) => `${Math.max(8, (chartRows.value[index]?.value || 0) / maxChartValue.value * 100)}%`,
     duration: 0.8,
     stagger: 0.1,
     ease: 'power2.out'
   })
+  gsap.fromTo('.content-grid-3 .panel, .dash-row-bottom .panel', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.08, ease: 'power2.out', delay: 0.15 })
+  gsap.fromTo('.alert-card', { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.3, stagger: 0.06, ease: 'power2.out', delay: 0.25 })
+  gsap.fromTo('.activity-item', { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.28, stagger: 0.04, ease: 'power2.out', delay: 0.35 })
+  gsap.fromTo('.exec-bar i', { width: '0%' }, { width: `${Math.min(100, todayProgress.value.plannedArea ? todayProgress.value.actualArea / todayProgress.value.plannedArea * 100 : 0)}%`, duration: 0.8, ease: 'power2.out', delay: 0.2 })
+  gsap.fromTo('.battery-gauge', { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'power2.out', delay: 0.2 })
 }
 
 const animateViewEnter = async () => {
@@ -891,7 +937,7 @@ watch(mapOverview, async () => {
           <article><span>今日计划亩数</span><strong>{{ Math.round(animatedOverview.todayAreaMu) }}</strong></article>
         </section>
 
-        <section class="content-grid">
+        <section class="content-grid dash-top-row">
           <div class="panel">
             <div class="section-title"><h2>无人机资源池</h2></div>
             <div v-if="drones.length" class="drone-list">
@@ -913,6 +959,98 @@ watch(mapOverview, async () => {
                 <b>{{ row.value }}</b>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section class="content-grid-3">
+          <div class="panel">
+            <div class="section-title"><h2>无人机状态分布</h2><span>{{ drones.length }} 架</span></div>
+            <div class="chart">
+              <div v-for="item in droneStatusDist" :key="item.key" class="chart-row">
+                <span>{{ item.label }}</span>
+                <div><i :style="{ width: Math.max(8, item.count / Math.max(1, drones.length) * 100) + '%', background: item.color }"></i></div>
+                <b>{{ item.count }}</b>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-title"><h2>电池健康</h2></div>
+            <div class="battery-health">
+              <div class="battery-gauge">
+                <span class="battery-pct">{{ Math.round(batteryHealth.avg) }}%</span>
+                <small>平均电量</small>
+              </div>
+              <div v-if="batteryHealth.low.length" class="battery-low-list">
+                <p class="battery-low-title">低电量预警</p>
+                <div v-for="d in batteryHealth.low" :key="d.id" class="battery-low-item">
+                  <strong>{{ d.code }}</strong>
+                  <span :style="{ color: d.batteryPercent < 10 ? '#b84437' : '#d9842b' }">{{ d.batteryPercent }}%</span>
+                </div>
+              </div>
+              <p v-else class="battery-ok">所有无人机电量充足</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-title"><h2>今日执行进度</h2></div>
+            <div class="exec-progress">
+              <div class="exec-row">
+                <span>计划面积</span>
+                <strong>{{ todayProgress.plannedArea }} 亩</strong>
+              </div>
+              <div class="exec-row">
+                <span>已完成</span>
+                <strong>{{ todayProgress.actualArea.toFixed(1) }} 亩</strong>
+              </div>
+              <div class="exec-bar">
+                <i :style="{ width: Math.min(100, todayProgress.plannedArea ? todayProgress.actualArea / todayProgress.plannedArea * 100 : 0) + '%' }"></i>
+              </div>
+              <p class="exec-detail">已完成 {{ todayProgress.finished }} 个作业，共 {{ todayProgress.total }} 条记录</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-grid dash-row-bottom">
+          <div class="panel">
+            <div class="section-title"><h2>虫害检测概览</h2><span>{{ pestAlertSummary.total }} 条记录</span></div>
+            <div class="alert-cards">
+              <div class="alert-card alert-high">
+                <strong>{{ pestAlertSummary.highCount }}</strong>
+                <span>高风险</span>
+              </div>
+              <div class="alert-card alert-medium">
+                <strong>{{ pestAlertSummary.mediumCount }}</strong>
+                <span>中风险</span>
+              </div>
+              <div class="alert-card alert-low">
+                <strong>{{ pestAlertSummary.lowCount }}</strong>
+                <span>低风险</span>
+              </div>
+            </div>
+            <div v-if="pestAlertSummary.recent.length" class="alert-recent">
+              <p class="alert-recent-title">最近检测</p>
+              <div v-for="r in pestAlertSummary.recent" :key="r.id" class="alert-item">
+                <span :class="['tag', r.severity === 'HIGH' ? 'tag-danger' : r.severity === 'MEDIUM' ? 'tag-warn' : 'tag-safe']">{{ severityText(r.severity) }}</span>
+                <span class="alert-disease">{{ r.detectedDisease }}</span>
+                <small>{{ fmt(r.createdAt) }}</small>
+              </div>
+            </div>
+            <p v-else class="empty" style="margin-top:12px;">暂无虫害检测记录</p>
+          </div>
+
+          <div class="panel">
+            <div class="section-title"><h2>最近操作动态</h2></div>
+            <div v-if="recentLogs.length" class="activity-feed">
+              <div v-for="log in recentLogs" :key="log.id" class="activity-item">
+                <span class="activity-dot"></span>
+                <div class="activity-body">
+                  <p>{{ log.content }}</p>
+                  <small>{{ log.moduleName }} · {{ log.actionName }} · {{ fmt(log.createdAt) }}</small>
+                </div>
+              </div>
+            </div>
+            <p v-else class="empty">暂无操作记录</p>
           </div>
         </section>
 

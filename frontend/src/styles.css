@@ -802,9 +802,246 @@ th {
   }
 
   .metric-grid,
-  .schedule-list {
+  .schedule-list,
+  .content-grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Dashboard: 3-column row */
+.content-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+/* Battery health */
+.battery-health {
+  display: grid;
+  gap: 16px;
+}
+
+.battery-gauge {
+  display: grid;
+  place-items: center;
+  padding: 22px 18px;
+  border: 2px solid #d8e3da;
+  border-radius: 12px;
+  background: #f9fcf9;
+}
+
+.battery-pct {
+  font-size: 42px;
+  font-weight: 800;
+  color: #236a49;
+}
+
+.battery-gauge small {
+  color: #65756a;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.battery-low-list {
+  display: grid;
+  gap: 8px;
+}
+
+.battery-low-title {
+  margin: 0;
+  color: #b84437;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.battery-low-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #fce4e4;
+  border-radius: 6px;
+  background: #fff8f8;
+}
+
+.battery-low-item strong {
+  font-size: 14px;
+}
+
+.battery-low-item span {
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.battery-ok {
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+  color: #236a49;
+  background: #eaf7e6;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Execution progress */
+.exec-progress {
+  display: grid;
+  gap: 12px;
+}
+
+.exec-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exec-row span {
+  color: #65756a;
+  font-size: 13px;
+}
+
+.exec-row strong {
+  font-size: 20px;
+  color: #133b2a;
+}
+
+.exec-bar {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edf1ee;
+}
+
+.exec-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #6db04b, #236a49);
+}
+
+.exec-detail {
+  margin: 0;
+  color: #65756a;
+  font-size: 12px;
+  text-align: right;
+}
+
+/* Pest alert cards */
+.alert-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.alert-card {
+  padding: 16px 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.alert-card strong {
+  display: block;
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.alert-card span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alert-high {
+  background: #fef0f0;
+}
+.alert-high strong { color: #b84437; }
+.alert-high span { color: #c25a4e; }
+
+.alert-medium {
+  background: #fef9ed;
+}
+.alert-medium strong { color: #d9842b; }
+.alert-medium span { color: #c27d32; }
+
+.alert-low {
+  background: #eef7e8;
+}
+.alert-low strong { color: #236a49; }
+.alert-low span { color: #3d7a5c; }
+
+.alert-recent {
+  border-top: 1px solid #edf1ee;
+  padding-top: 12px;
+}
+
+.alert-recent-title {
+  margin: 0 0 10px;
+  color: #65756a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alert-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.alert-item .tag {
+  flex-shrink: 0;
+}
+
+.alert-disease {
+  flex: 1;
+  font-size: 13px;
+  color: #2a4637;
+}
+
+.alert-item small {
+  color: #889e8f;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* Activity feed */
+.activity-feed {
+  display: grid;
+  gap: 0;
+}
+
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f2f6f2;
+}
+
+.activity-item:last-child {
+  border-bottom: 0;
+}
+
+.activity-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #a5d66d;
+}
+
+.activity-body p {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #2a4637;
+  line-height: 1.4;
+}
+
+.activity-body small {
+  color: #889e8f;
+  font-size: 11px;
 }
 
 @media (max-width: 640px) {
@@ -832,8 +1069,13 @@ th {
   nav,
   .metric-grid,
   .task-form,
-  .schedule-list {
+  .schedule-list,
+  .content-grid-3 {
     grid-template-columns: 1fr;
+  }
+
+  .alert-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .wide {
